@@ -1,0 +1,11 @@
+# Normalise text to LF in the repo so Windows checkouts stay consistent
+* text=auto eol=lf
+
+# Keep Windows users' line endings sane for the launcher script
+*.bat text eol=crlf
+
+# Binary assets: never diff, never convert
+*.png binary
+*.jpg binary
+*.webp binary
+*.ico binary
