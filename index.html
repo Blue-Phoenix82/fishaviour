@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Fishaviour</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐟</text></svg>" />
+<style>
+  :root {
+    --ink: #0b1f2a;
+    --glass: rgba(8, 28, 40, 0.55);
+    --line: rgba(160, 225, 255, 0.22);
+    --accent: #ffb454;
+    --good: #8ef0c0;
+    --bad: #ff7a6b;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: #0a1a24;
+    font-family: "Segoe UI", "Trebuchet MS", system-ui, sans-serif;
+    color: #eaf7ff;
+    -webkit-user-select: none; user-select: none;
+  }
+  #app { position: fixed; inset: 0; }
+  canvas { display: block; }
+
+  /* ---------- HUD ---------- */
+  #hud {
+    position: fixed; inset: 0; pointer-events: none;
+    transition: opacity .35s ease;
+  }
+  #hud.hidden { opacity: 0; visibility: hidden; }
+  .hud-top {
+    position: absolute; top: 22px; left: 24px;
+    display: flex; gap: 14px;
+  }
+  .stat {
+    min-width: 116px;
+    padding: 10px 16px 12px;
+    border-radius: 14px;
+    background: var(--glass);
+    border: 1px solid var(--line);
+    box-shadow: 0 10px 30px rgba(0,0,0,.18);
+    backdrop-filter: blur(8px);
+  }
+  .stat .label {
+    display: block;
+    font-size: 10px; letter-spacing: .22em;
+    color: #9fc6d6; margin-bottom: 2px;
+    font-weight: 700;
+  }
+  .stat .value {
+    font-size: 30px; font-weight: 800; line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat .value.bad { color: var(--bad); }
+  .stat .value.warn { color: var(--accent); }
+  .stat.warn .value { color: var(--accent); }
+  .stat.flash { animation: statflash .5s ease; }
+  @keyframes statflash {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,122,107,.55); }
+    35% { transform: scale(1.08); box-shadow: 0 0 0 14px rgba(255,122,107,0); }
+    100% { transform: scale(1); }
+  }
+  .hud-hint {
+    position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%);
+    padding: 9px 18px;
+    border-radius: 999px;
+    background: rgba(6, 22, 32, .5);
+    border: 1px solid var(--line);
+    font-size: 13px; color: #cbe7f3;
+    white-space: nowrap;
+    backdrop-filter: blur(6px);
+  }
+  .hud-hint b { color: #fff; }
+
+  /* ---------- Screens ---------- */
+  .screen {
+    position: fixed; inset: 0;
+    display: grid; place-items: center;
+    padding: 24px;
+    transition: opacity .35s ease;
+    background: radial-gradient(circle at 50% 40%, rgba(6,26,38,.08), rgba(3,14,20,.66));
+    backdrop-filter: blur(3px);
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; visibility: hidden; backdrop-filter: none; }
+  .panel {
+    width: min(560px, 100%);
+    padding: 34px 38px 30px;
+    border-radius: 22px;
+    background: linear-gradient(160deg, rgba(14,42,58,.92), rgba(7,23,33,.94));
+    border: 1px solid var(--line);
+    box-shadow: 0 30px 80px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.07);
+    text-align: center;
+    animation: rise .4s ease both;
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  .panel.hidden { display: none; }
+  h1 {
+    margin: 0 0 4px;
+    font-size: clamp(38px, 8vw, 58px);
+    letter-spacing: .06em;
+    font-weight: 900;
+    background: linear-gradient(180deg, #ffffff, #7fd8ff 55%, #ffb454);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 6px 24px rgba(90,200,255,.25));
+  }
+  .tag { margin: 0 0 22px; color: #9fc6d6; font-size: 14px; letter-spacing: .05em; }
+  .panel p { font-size: 14.5px; line-height: 1.6; color: #cfe8f4; margin: 12px 0; }
+  .panel b { color: #fff; }
+  .goal {
+    margin: 18px auto 22px !important;
+    display: block;
+    width: fit-content;
+    padding: 10px 18px;
+    border-radius: 12px;
+    background: rgba(255,180,84,.1);
+    border: 1px solid rgba(255,180,84,.32);
+    color: #ffd9a8 !important;
+  }
+  button {
+    appearance: none; border: 0; cursor: pointer;
+    font: inherit; font-weight: 800; letter-spacing: .1em;
+    padding: 15px 34px;
+    border-radius: 14px;
+    color: #062230;
+    background: linear-gradient(180deg, #9be8ff, #41bfe8);
+    box-shadow: 0 12px 26px rgba(40,170,220,.35), inset 0 -3px 0 rgba(0,0,0,.14);
+    transition: transform .12s ease, filter .2s ease;
+    pointer-events: auto;
+  }
+  button:hover { filter: brightness(1.08); transform: translateY(-1px); }
+  button:active { transform: translateY(1px); }
+  .bestline { margin-top: 16px !important; font-size: 12.5px !important; color: #8fb4c4 !important; letter-spacing: .04em; }
+  .result { display: flex; justify-content: center; gap: 28px; margin: 20px 0 6px; }
+  .result .num { font-size: 46px; font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
+  .result .cap { font-size: 10px; letter-spacing: .2em; color: #9fc6d6; margin-top: 6px; }
+  .result .caught .num { color: var(--bad); }
+  .result .pushes .num { color: var(--good); }
+  .verdict { font-size: 15px !important; color: #ffd9a8 !important; margin: 14px 0 22px !important; }
+  .keys { display: flex; justify-content: center; gap: 18px; margin: 16px 0 4px; color: #9fc6d6; font-size: 12px; flex-wrap: wrap; }
+  kbd {
+    display: inline-block; padding: 3px 7px; margin-right: 5px;
+    border-radius: 6px; background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.16);
+    border-bottom-width: 2px;
+    color: #fff; font-family: inherit; font-size: 11px; font-weight: 700;
+  }
+  .row { display: flex; gap: 12px; justify-content: center; }
+  .ghost {
+    background: transparent; color: #cfe8f4;
+    border: 1px solid rgba(160,225,255,.25);
+    box-shadow: none;
+  }
+  .ghost:hover { background: rgba(160,225,255,.08); }
+  @media (max-width: 560px) {
+    .panel { padding: 26px 22px; }
+    .hud-top { top: 14px; left: 14px; gap: 10px; }
+    .stat { min-width: 92px; padding: 8px 12px 10px; border-radius: 12px; }
+    .stat .value { font-size: 24px; }
+    .hud-hint { font-size: 11px; bottom: 14px; max-width: 92vw; white-space: normal; text-align: center; }
+  }
+</style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <div id="hud" class="hidden">
+    <div class="hud-top">
+      <div class="stat" id="timerCard">
+        <span class="label">TIME</span>
+        <span class="value" id="timer">60</span>
+      </div>
+      <div class="stat" id="caughtCard">
+        <span class="label">CAUGHT</span>
+        <span class="value bad" id="caught">0</span>
+      </div>
+    </div>
+    <div class="hud-hint">
+      <b>WASD</b> swim &nbsp;·&nbsp; <b>Shift</b> sprint &nbsp;·&nbsp; <b>Esc</b> pause &nbsp;—&nbsp; shove fish away from the bobbers before they bite
+    </div>
+  </div>
+
+  <div id="overlay" class="screen">
+    <div class="panel" id="panel-menu">
+      <h1>FISHAVIOUR</h1>
+      <p class="tag">Save the school. Keep your friends off the hook.</p>
+      <p>You are a fish. Humans are fishing from the shore, and your friends keep drifting toward the bait.</p>
+      <p><b>Ram into a fish</b> to shove it away. A pushed fish stays clear of bait for <b>10 seconds</b>.</p>
+      <p class="goal">Every fish caught adds +1. Lowest score wins.</p>
+      <button id="btn-start">DIVE IN</button>
+      <p class="bestline" id="bestline"></p>
+    </div>
+
+    <div class="panel hidden" id="panel-pause">
+      <h1>PAUSED</h1>
+      <p class="tag">The lake waits for no fish.</p>
+      <div class="row">
+        <button id="btn-resume">RESUME</button>
+        <button id="btn-restart-pause" class="ghost">RESTART</button>
+      </div>
+    </div>
+
+    <div class="panel hidden" id="panel-over">
+      <h1 id="overTitle">TIME'S UP</h1>
+      <p class="tag" id="overTag">The humans pack up and go home.</p>
+      <div class="result">
+        <div class="caught">
+          <div class="num" id="overCaught">0</div>
+          <div class="cap">FISH CAUGHT</div>
+        </div>
+        <div class="pushes">
+          <div class="num" id="overPushes">0</div>
+          <div class="cap">RESCUES</div>
+        </div>
+      </div>
+      <p class="verdict" id="overVerdict"></p>
+      <div class="row">
+        <button id="btn-again">DIVE AGAIN</button>
+      </div>
+      <p class="bestline" id="bestline2"></p>
+    </div>
+  </div>
+
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three.module.js" } }
+  </script>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
